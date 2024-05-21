@@ -119,12 +119,15 @@ class HTTPClientConnection extends ClientConnection {
   @override
   String get scheme => uri.scheme;
 
+  @override
+  void Function(ConnectionState p1)? onStateChanged;
+
   // @visibleForTesting
   http.Client createHttpClient() => http.Client();
 
   @override
   GrpcTransportStream makeRequest(String path, Duration? timeout,
-      Map<String, String> metadata, ErrorHandler onError,
+      Map<String, String> metadata, ErrorHandler onRequestFailure,
       {CallOptions? callOptions}) {
     // gRPC-web headers.
     if (_getContentTypeHeader(metadata) == null) {
@@ -147,8 +150,10 @@ class HTTPClientConnection extends ClientConnection {
 
     final client = createHttpClient();
 
+    onStateChanged?.call(ConnectionState.ready);
+
     final transportStream = HTTPTransportStream(client, request,
-        onError: onError, onDone: _removeStream);
+        onError: onRequestFailure, onDone: _removeStream);
     _requests.add(transportStream);
     return transportStream;
   }
@@ -170,7 +175,7 @@ class HTTPClientConnection extends ClientConnection {
   }
 
   @override
-  Future<void> shutdown() async {}
+  Future<void> shutdown() async => onStateChanged?.call(ConnectionState.shutdown);
 }
 
 MapEntry<String, String>? _getContentTypeHeader(Map<String, String> metadata) {
